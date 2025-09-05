@@ -6,7 +6,7 @@ export default function Page() {
   return (
     <main className="w-screen h-screen overflow-hidden">
       <Suspense>
-        <PageClient key={Math.random()} />
+        <PageClient />
       </Suspense>
     </main>
   )
