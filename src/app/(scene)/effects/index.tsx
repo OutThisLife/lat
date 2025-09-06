@@ -5,8 +5,14 @@ import { UnrealBloomPass } from 'three-stdlib'
 
 import { DitheringPass } from './dithering'
 import { GrainPass } from './grain'
+import { VignettePass } from './vignette'
 
-extend({ DitheringPass, GrainPass, UnrealBloomPass })
+extend({
+  DitheringPass,
+  GrainPass,
+  UnrealBloomPass,
+  VignettePass
+})
 
 export function FX() {
   const config = useControls(
@@ -88,18 +94,38 @@ export function FX() {
           step: 1,
           value: 0
         }
+      }),
+      vignette: folder({
+        enableVignette: { value: true },
+        vignetteRoundness: { max: 3, min: 0.5, step: 0.01, value: 1.5 },
+        vignetteSmoothness: { max: 1, min: 0, step: 0.01, value: 0.35 },
+        vignetteStrength: { max: 1, min: 0, step: 0.01, value: 0.2 }
       })
     },
     { collapsed: true }
   )
 
   const anyEnabled =
-    config.enableDithering || config.enableBloom || config.enableGrain
+    config.enableDithering ||
+    config.enableBloom ||
+    config.enableGrain ||
+    config.enableVignette
 
   if (!anyEnabled) return null
 
   return (
     <Effects disableGamma multisamping={0} anisotropy={16}>
+      {/* @ts-expect-error - custom pass */}
+      <vignettePass
+        enabled={config.enableVignette}
+        args={[
+          {
+            roundness: config.vignetteRoundness,
+            smoothness: config.vignetteSmoothness,
+            strength: config.vignetteStrength
+          }
+        ]}
+      />
       {/* @ts-expect-error - custom pass */}
       <ditheringPass
         enabled={config.enableDithering}
