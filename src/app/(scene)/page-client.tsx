@@ -124,20 +124,20 @@ function Scene() {
 
   const cfg = useSmoothControls('shape', {
     fadeAlpha: { max: 1, min: 0, value: 0.93 },
-    fadeWidth: { max: 1, min: 0, value: 0.38 },
+    fadeWidth: { max: 1, min: 0, value: 0.16 },
     metalness: { max: 1, min: 0, value: 0.27 },
     opacity: { max: 1, min: 0, value: 0.04 },
     roughness: { max: 1, min: 0, value: 0.52 }
   })
 
   const scalars = useSmoothControls('scalars', {
-    instanceCount: { max: 50, min: 5, step: 1, value: 25 },
-    petalAmp: { max: 1, min: 0, step: 0.001, value: 0.35 },
+    instanceCount: { max: 50, min: 5, step: 1, value: 50 },
+    petalAmp: { max: 1, min: 0, step: 0.001, value: 0.36 },
     petalSegments: { max: 1024, min: 64, step: 1, value: 360 },
-    petalWidth: { max: 0.2, min: 0.001, step: 0.001, value: 0.05 },
-    petals: { max: 100, min: 2, step: 1, value: 3 },
-    rot: { max: 360, min: -360, value: 38 },
-    scale: { max: 1, min: 0, step: 0.0001, value: 0.63 }
+    petalWidth: { max: 0.2, min: 0.001, step: 0.001, value: 0.02 },
+    petals: { max: 100, min: 2, step: 1, value: 4 },
+    rot: { max: 360, min: -360, value: -214 },
+    scale: { max: 1, min: 0, step: 0.0001, value: 0.33 }
   })
 
   const instances = (
