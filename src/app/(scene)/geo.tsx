@@ -128,7 +128,9 @@ function FlowerBand({
   phaseRef,
   segments = 360,
   width = 0.02
-}: FlowerParams & { phaseRef?: { current: { phase: number; gradientRot: number } } }) {
+}: FlowerParams & {
+  phaseRef?: { current: { phase: number; gradientRot: number } }
+}) {
   const { geom, positions } = useMemo(() => {
     const g = createFlowerBandGeometry({
       amplitude,

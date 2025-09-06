@@ -25,40 +25,31 @@ function useAnimations(config: AnimationConfig) {
   const animRef = useRef({ gradientRot: 0, phase: 0 })
 
   useEffect(() => {
-    const tl = gsap.timeline()
+    const t = animRef.current
 
-    // Phase animation
-    tl.to(
-      animRef.current,
-      {
-        duration: config.phaseDuration,
-        ease: 'none',
-        onRepeat: () => {
-          animRef.current.phase = 0
-        },
-        phase: 360,
-        repeat: -1
+    const a = gsap.to(t, {
+      duration: config.phaseDuration,
+      ease: 'none',
+      onRepeat: () => {
+        t.phase = 0
       },
-      0
-    )
+      phase: 360,
+      repeat: -1
+    })
 
-    // Gradient rotation animation
-    tl.to(
-      animRef.current,
-      {
-        duration: config.gradientDuration,
-        ease: 'none',
-        gradientRot: 360,
-        onRepeat: () => {
-          animRef.current.gradientRot = 0
-        },
-        repeat: -1
+    const b = gsap.to(t, {
+      duration: config.gradientDuration,
+      ease: 'none',
+      gradientRot: 360,
+      onRepeat: () => {
+        t.gradientRot = 0
       },
-      0
-    )
+      repeat: -1
+    })
 
     return () => {
-      tl.kill()
+      a.kill()
+      b.kill()
     }
   }, [config.phaseDuration, config.gradientDuration])
 
@@ -74,11 +65,11 @@ function FlowerInstances({
 }: FlowerInstancesProps) {
   const materialRef = useRef<any>(null)
 
-  useFrame(() => {
-    if (materialRef.current) {
-      materialRef.current.gradientRotation = animRef.current.gradientRot
-    }
-  })
+  useFrame(
+    () =>
+      materialRef.current &&
+      (materialRef.current.gradientRotation = animRef.current.gradientRot)
+  )
 
   const transforms = useMemo(
     () =>
@@ -102,7 +93,7 @@ function FlowerInstances({
       {/* @ts-expect-error - custom mat */}
       <gradientMaterial
         ref={materialRef}
-        bending={THREE.NormalBlending}
+        blending={THREE.NormalBlending}
         fadeAlpha={cfg.fadeAlpha}
         fadeWidth={cfg.fadeWidth}
         fog
@@ -135,17 +126,16 @@ function Scene() {
     fadeAlpha: { max: 1, min: 0, value: 0.93 },
     fadeWidth: { max: 1, min: 0, value: 0.38 },
     metalness: { max: 1, min: 0, value: 0.27 },
-    opacity: { max: 1, min: 0, value: 0.5 },
+    opacity: { max: 1, min: 0, value: 0.04 },
     roughness: { max: 1, min: 0, value: 0.52 }
   })
 
   const scalars = useSmoothControls('scalars', {
     instanceCount: { max: 50, min: 5, step: 1, value: 25 },
-    // flower params
     petalAmp: { max: 1, min: 0, step: 0.001, value: 0.35 },
     petalSegments: { max: 1024, min: 64, step: 1, value: 360 },
-    petalWidth: { max: 0.2, min: 0.001, step: 0.001, value: 0.02 },
-    petals: { max: 24, min: 2, step: 1, value: 6 },
+    petalWidth: { max: 0.2, min: 0.001, step: 0.001, value: 0.05 },
+    petals: { max: 100, min: 2, step: 1, value: 3 },
     rot: { max: 360, min: -360, value: 38 },
     scale: { max: 1, min: 0, step: 0.0001, value: 0.63 }
   })
@@ -171,8 +161,8 @@ function Scene() {
 }
 
 interface AnimationConfig {
-  phaseDuration: number
   gradientDuration: number
+  phaseDuration: number
 }
 
 interface FlowerInstancesProps {
