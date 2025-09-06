@@ -20,7 +20,6 @@ import { useSmoothControls } from '@/hooks/use-smooth-controls'
 import { FX as Effects } from './effects'
 import Geo from './geo'
 
-// Animation system hook
 function useAnimations(config: AnimationConfig) {
   const animRef = useRef({ gradientRot: 0, phase: 0 })
 
@@ -56,7 +55,6 @@ function useAnimations(config: AnimationConfig) {
   return animRef
 }
 
-// Instanced flower system
 function FlowerInstances({
   animRef,
   cfg,
@@ -151,11 +149,18 @@ function Scene() {
 
   return (
     <Center
-      scale={6}
+      scale={4}
       key={JSON.stringify({ ...cfg, count: scalars.instanceCount })}
     >
-      <group scale-x={1}>{instances}</group>
-      <group scale-x={-1}>{instances}</group>
+      <group position-x={-0.25} rotation-z={Math.PI / -1.45}>
+        {instances}
+        <group scale-x={-1}>{instances}</group>
+      </group>
+
+      <group position-x={0.25} rotation-z={Math.PI / 1.45}>
+        {instances}
+        <group scale-x={-1}>{instances}</group>
+      </group>
     </Center>
   )
 }
