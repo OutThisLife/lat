@@ -79,33 +79,35 @@ function FlowerInstances({
   )
 
   return (
-    <Instances range={count} key={Math.random()}>
-      <Geo
-        petalAmp={scalars.petalAmp}
-        petalSegments={scalars.petalSegments}
-        petalWidth={scalars.petalWidth}
-        petals={scalars.petals}
-        phaseRef={animRef as any}
-      />
+    <>
+      <Instances range={count} key={Math.random()}>
+        <Geo
+          petalAmp={scalars.petalAmp}
+          petalSegments={scalars.petalSegments}
+          petalWidth={scalars.petalWidth}
+          petals={scalars.petals}
+          phaseRef={animRef as any}
+        />
 
-      {/* @ts-expect-error - custom mat */}
-      <gradientMaterial
-        ref={materialRef}
-        blending={THREE.NormalBlending}
-        fadeAlpha={cfg.fadeAlpha}
-        fadeWidth={cfg.fadeWidth}
-        fog
-        metalness={cfg.metalness}
-        opacity={cfg.opacity}
-        roughness={cfg.roughness}
-        transparent
-        side={THREE.DoubleSide}
-      />
+        {/* @ts-expect-error - custom mat */}
+        <gradientMaterial
+          ref={materialRef}
+          blending={THREE.NormalBlending}
+          fadeAlpha={cfg.fadeAlpha}
+          fadeWidth={cfg.fadeWidth}
+          fog
+          metalness={cfg.metalness}
+          opacity={cfg.opacity}
+          roughness={cfg.roughness}
+          transparent
+          side={THREE.DoubleSide}
+        />
 
-      {transforms.map((t, i) => (
-        <Instance key={i} scale={t.scale} rotation={[0, 0, t.rotation]} />
-      ))}
-    </Instances>
+        {transforms.map((t, i) => (
+          <Instance key={i} scale={t.scale} rotation={[0, 0, t.rotation]} />
+        ))}
+      </Instances>
+    </>
   )
 }
 
@@ -171,7 +173,7 @@ interface AnimationConfig {
 }
 
 interface FlowerInstancesProps {
-  animRef: React.MutableRefObject<{ phase: number; gradientRot: number }>
+  animRef: React.RefObject<{ phase: number; gradientRot: number }>
   cfg: any
   count?: number
   scalars: any
@@ -200,7 +202,6 @@ export default function PageClient() {
         />
 
         <Scene key={Math.random()} />
-
         <Effects />
       </Suspense>
 
