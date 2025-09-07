@@ -11,7 +11,7 @@ import {
 } from '@react-three/drei'
 import type { ThreeElements } from '@react-three/fiber'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { folder, useControls } from 'leva'
+import { useControls } from 'leva'
 import { Suspense, useRef } from 'react'
 import * as THREE from 'three'
 
@@ -49,7 +49,6 @@ function FlowerInstances({
       materialRef.current.roughness = cfg.roughness
     }
 
-    // Update instance transforms efficiently (no popping)
     const mesh = meshRef.current
 
     if (mesh) {
@@ -93,104 +92,52 @@ function FlowerInstances({
   )
 }
 
-function Scene({ seed, timeScale = 1, ...props }: SceneProps) {
+function Scene({ initValues, seed, timeScale = 1, ...props }: SceneProps) {
   const uid = useRef((seed ?? Math.random().toString(36).slice(2)).toString())
   const modulator = useRef(new NoiseModulator({ seed: uid.current, timeScale }))
   const configRef = useRef(modulator.current.getCurrent())
   const animRef = useRef({ gradientRot: 0, phase: 0 })
 
-  const {
-    metalnessCtl,
-    opacity,
-    rotCtl,
-    roughnessCtl,
-    scaleCtl,
-    speed,
-    ...ranges
-  } = useControls('controls', {
-    metalnessCtl: { max: 1, min: 0, step: 0.001, value: 0.27 },
-    // static controls
-    opacity: { max: 0.3, min: 0.005, step: 0.001, value: 0.02 },
-    ranges: folder({
-      // style (tight around prior defaults)
-      fadeAlphaRange: { max: 1, min: 0, step: 0.01, value: [0.9, 0.96] },
-      fadeWidthRange: { max: 1, min: 0, step: 0.001, value: [0.14, 0.18] },
-      gradientDurationRange: {
-        max: 120,
-        min: 0.1,
-        step: 0.1,
-        value: [10, 20]
+  const { metalnessCtl, opacity, rotCtl, roughnessCtl, scaleCtl, speed } =
+    useControls(`scene/${uid.current}`, {
+      metalnessCtl: {
+        max: 1,
+        min: 0,
+        step: 0.001,
+        value: initValues?.metalnessCtl ?? 0.27
       },
-
-      // scalars (tight around prior defaults)
-      instanceCountRange: { max: 50, min: 1, step: 1, value: [48, 50] },
-      petalAmpRange: { max: 1, min: -1, step: 0.001, value: [0.33, 0.39] },
-      petalSegmentsRange: { max: 1024, min: 16, step: 1, value: [320, 400] },
-      petalWidthRange: {
-        max: 0.2,
-        min: 0.0001,
+      opacity: {
+        max: 0.3,
+        min: 0.005,
+        step: 0.001,
+        value: initValues?.opacity ?? 0.02
+      },
+      rotCtl: {
+        max: 1080,
+        min: -1080,
+        step: 1,
+        value: initValues?.rotCtl ?? -214
+      },
+      roughnessCtl: {
+        max: 1,
+        min: 0,
+        step: 0.001,
+        value: initValues?.roughnessCtl ?? 0.52
+      },
+      scaleCtl: {
+        max: 1,
+        min: 0,
         step: 0.0001,
-        value: [0.018, 0.024]
+        value: initValues?.scaleCtl ?? 0.33
       },
-      petalsRange: { max: 40, min: 1, step: 1, value: [4, 6] },
-
-      // animation pacing (closer to earlier feel)
-      phaseDurationRange: { max: 60, min: 0.1, step: 0.1, value: [6, 12] }
-
-      // static: rot/roughness/scale handled above
-    }),
-    rotCtl: { max: 1080, min: -1080, step: 1, value: -214 },
-    roughnessCtl: { max: 1, min: 0, step: 0.001, value: 0.52 },
-    scaleCtl: { max: 1, min: 0, step: 0.0001, value: 0.33 },
-
-    speed: { max: 5, min: 0, step: 0.01, value: 0.48 }
-  })
+      speed: { max: 5, min: 0, step: 0.01, value: initValues?.speed ?? 0.48 }
+    })
 
   // Single useFrame for all updates
   useFrame((_, dt) => {
     const deltaTime = dt * speed
 
-    // Update config directly via ref (ranges only for animated params)
-    // Apply UI ranges to modulator before update
-    modulator.current.setRanges({
-      fadeAlpha: {
-        max: (ranges.fadeAlphaRange as number[])[1],
-        min: (ranges.fadeAlphaRange as number[])[0]
-      },
-      fadeWidth: {
-        max: (ranges.fadeWidthRange as number[])[1],
-        min: (ranges.fadeWidthRange as number[])[0]
-      },
-      gradientDuration: {
-        max: (ranges.gradientDurationRange as number[])[1],
-        min: (ranges.gradientDurationRange as number[])[0]
-      },
-      instanceCount: {
-        max: (ranges.instanceCountRange as number[])[1],
-        min: (ranges.instanceCountRange as number[])[0]
-      },
-      petalAmp: {
-        max: (ranges.petalAmpRange as number[])[1],
-        min: (ranges.petalAmpRange as number[])[0]
-      },
-      petalSegments: {
-        max: (ranges.petalSegmentsRange as number[])[1],
-        min: (ranges.petalSegmentsRange as number[])[0]
-      },
-      petalWidth: {
-        max: (ranges.petalWidthRange as number[])[1],
-        min: (ranges.petalWidthRange as number[])[0]
-      },
-      petals: {
-        max: (ranges.petalsRange as number[])[1],
-        min: (ranges.petalsRange as number[])[0]
-      },
-      phaseDuration: {
-        max: (ranges.phaseDurationRange as number[])[1],
-        min: (ranges.phaseDurationRange as number[])[0]
-      }
-      // static params not modulated: rot, roughness, scale, metalness, opacity
-    })
+    // No external ranges; use the modulator's internal defaults
 
     configRef.current = modulator.current.update(deltaTime)
 
@@ -249,14 +196,25 @@ export default function PageClient() {
         />
 
         <group scale={4}>
-          <Scene seed="A" />
-
-          <Scene seed="B" rotation={[0, 0, Math.PI / 1]} />
+          <Scene seed="A" rotation={[0, 0, Math.PI / -1.75]} />
+          <Scene
+            seed="B"
+            rotation={[0, 0, Math.PI / 1.75]}
+            initValues={{
+              metalness: 0.77,
+              opacity: 0.01,
+              rotCtl: -100,
+              roughness: 0.52,
+              scaleCtl: 0.85,
+              speed: 2
+            }}
+          />
 
           <Scene
             seed="D"
             position={[0, 0, 1]}
             rotation={[0, 0, Math.PI / 1.35]}
+            initValues={{ opacity: 0.01 }}
           />
         </group>
 
@@ -272,4 +230,5 @@ export default function PageClient() {
 interface SceneProps extends Partial<ThreeElements['group']> {
   seed?: string | number
   timeScale?: number
+  initValues?: Record<string, number>
 }
