@@ -158,6 +158,8 @@ function FlowerBand({
 
   useFrame(() => {
     const cfg = configRef.current
+
+    if (!cfg) return
     const p = phaseRef?.current?.phase ?? 0
 
     // Update positions with current config (fast path)

@@ -3,13 +3,13 @@
 import './material'
 
 import {
-  Center,
   Environment,
   Instance,
   Instances,
   OrbitControls,
   Stats
 } from '@react-three/drei'
+import type { ThreeElements } from '@react-three/fiber'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { folder, useControls } from 'leva'
 import { Suspense, useRef } from 'react'
@@ -36,6 +36,8 @@ function FlowerInstances({
 
   useFrame(() => {
     const cfg = configRef.current
+
+    if (!cfg) return
 
     // Update material
     if (materialRef.current) {
@@ -91,8 +93,9 @@ function FlowerInstances({
   )
 }
 
-function Scene() {
-  const modulator = useRef(new NoiseModulator())
+function Scene({ seed, timeScale = 1, ...props }: SceneProps) {
+  const uid = useRef((seed ?? Math.random().toString(36).slice(2)).toString())
+  const modulator = useRef(new NoiseModulator({ seed: uid.current, timeScale }))
   const configRef = useRef(modulator.current.getCurrent())
   const animRef = useRef({ gradientRot: 0, phase: 0 })
 
@@ -107,28 +110,32 @@ function Scene() {
   } = useControls('controls', {
     metalnessCtl: { max: 1, min: 0, step: 0.001, value: 0.27 },
     // static controls
-    opacity: { max: 0.3, min: 0.005, step: 0.001, value: 0.04 },
+    opacity: { max: 0.3, min: 0.005, step: 0.001, value: 0.02 },
     ranges: folder({
-      fadeAlphaRange: { max: 1, min: 0, step: 0.01, value: [0.1, 1] },
-      fadeWidthRange: { max: 1, min: 0, step: 0.001, value: [0, 0.8] },
+      // style (tight around prior defaults)
+      fadeAlphaRange: { max: 1, min: 0, step: 0.01, value: [0.9, 0.96] },
+      fadeWidthRange: { max: 1, min: 0, step: 0.001, value: [0.14, 0.18] },
       gradientDurationRange: {
         max: 120,
         min: 0.1,
         step: 0.1,
-        value: [2, 80]
+        value: [10, 20]
       },
-      instanceCountRange: { max: 50, min: 1, step: 1, value: [5, 50] },
-      // static: opacity/metalness handled above
-      petalAmpRange: { max: 1, min: -1, step: 0.001, value: [-0.2, 1] },
-      petalSegmentsRange: { max: 1024, min: 16, step: 1, value: [16, 1024] },
+
+      // scalars (tight around prior defaults)
+      instanceCountRange: { max: 50, min: 1, step: 1, value: [48, 50] },
+      petalAmpRange: { max: 1, min: -1, step: 0.001, value: [0.33, 0.39] },
+      petalSegmentsRange: { max: 1024, min: 16, step: 1, value: [320, 400] },
       petalWidthRange: {
         max: 0.2,
         min: 0.0001,
         step: 0.0001,
-        value: [0.0005, 0.2]
+        value: [0.018, 0.024]
       },
-      petalsRange: { max: 40, min: 1, step: 1, value: [1, 30] },
-      phaseDurationRange: { max: 60, min: 0.1, step: 0.1, value: [0.5, 40] }
+      petalsRange: { max: 40, min: 1, step: 1, value: [4, 6] },
+
+      // animation pacing (closer to earlier feel)
+      phaseDurationRange: { max: 60, min: 0.1, step: 0.1, value: [6, 12] }
 
       // static: rot/roughness/scale handled above
     }),
@@ -136,7 +143,7 @@ function Scene() {
     roughnessCtl: { max: 1, min: 0, step: 0.001, value: 0.52 },
     scaleCtl: { max: 1, min: 0, step: 0.0001, value: 0.33 },
 
-    speed: { max: 5, min: 0, step: 0.01, value: 1 }
+    speed: { max: 5, min: 0, step: 0.01, value: 0.48 }
   })
 
   // Single useFrame for all updates
@@ -197,28 +204,25 @@ function Scene() {
     // Update animations directly
     animRef.current.phase =
       (animRef.current.phase +
-        (deltaTime * 360) / configRef.current.phaseDuration) %
+        (deltaTime * 360) /
+          (configRef.current.phaseDuration *
+            (1 + (parseInt(uid.current, 36) % 5) * 0.15))) %
       360
     animRef.current.gradientRot =
       (animRef.current.gradientRot +
-        (deltaTime * 360) / configRef.current.gradientDuration) %
+        (deltaTime * 360) /
+          (configRef.current.gradientDuration *
+            (1 + (parseInt(uid.current, 36) % 7) * 0.12))) %
       360
   })
 
   const instances = <FlowerInstances animRef={animRef} configRef={configRef} />
 
   return (
-    <Center scale={4}>
-      <group position-x={-0.25}>
-        {instances}
-        <group scale-x={-1}>{instances}</group>
-      </group>
-
-      <group position-x={0.25} rotation-z={Math.PI / 1.45}>
-        {instances}
-        <group scale-x={-1}>{instances}</group>
-      </group>
-    </Center>
+    <group {...props}>
+      {instances}
+      <group scale-x={-1}>{instances}</group>
+    </group>
   )
 }
 
@@ -244,7 +248,18 @@ export default function PageClient() {
           backgroundIntensity={0.005}
         />
 
-        <Scene />
+        <group scale={4}>
+          <Scene seed="A" />
+
+          <Scene seed="B" rotation={[0, 0, Math.PI / 1]} />
+
+          <Scene
+            seed="D"
+            position={[0, 0, 1]}
+            rotation={[0, 0, Math.PI / 1.35]}
+          />
+        </group>
+
         <Effects />
       </Suspense>
 
@@ -252,4 +267,9 @@ export default function PageClient() {
       <Stats />
     </Canvas>
   )
+}
+
+interface SceneProps extends Partial<ThreeElements['group']> {
+  seed?: string | number
+  timeScale?: number
 }
