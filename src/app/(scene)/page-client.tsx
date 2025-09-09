@@ -3,180 +3,174 @@
 import './material'
 
 import {
-  Center,
   Environment,
   Instance,
   Instances,
   OrbitControls,
   Stats
 } from '@react-three/drei'
+import type { ThreeElements } from '@react-three/fiber'
 import { Canvas, useFrame } from '@react-three/fiber'
-import gsap from 'gsap'
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { useControls } from 'leva'
+import { Suspense, useRef } from 'react'
 import * as THREE from 'three'
-
-import { useSmoothControls } from '@/hooks/use-smooth-controls'
 
 import { FX as Effects } from './effects'
 import Geo from './geo'
-
-function useAnimations(config: AnimationConfig) {
-  const animRef = useRef({ gradientRot: 0, phase: 0 })
-
-  useEffect(() => {
-    const t = animRef.current
-
-    const a = gsap.to(t, {
-      duration: config.phaseDuration,
-      ease: 'none',
-      onRepeat: () => {
-        t.phase = 0
-      },
-      phase: 360,
-      repeat: -1
-    })
-
-    const b = gsap.to(t, {
-      duration: config.gradientDuration,
-      ease: 'none',
-      gradientRot: 360,
-      onRepeat: () => {
-        t.gradientRot = 0
-      },
-      repeat: -1
-    })
-
-    return () => {
-      a.kill()
-      b.kill()
-    }
-  }, [config.phaseDuration, config.gradientDuration])
-
-  return animRef
-}
+import { NoiseModulator } from './presets'
 
 function FlowerInstances({
   animRef,
-  cfg,
-  count = 25,
-  scalars
-}: FlowerInstancesProps) {
+  configRef
+}: {
+  animRef: React.RefObject<{ phase: number; gradientRot: number }>
+  configRef: React.RefObject<any>
+}) {
   const materialRef = useRef<any>(null)
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  const tempMatrix = useRef(new THREE.Matrix4()).current
+  const tempEuler = useRef(new THREE.Euler()).current
+  const tempQuat = useRef(new THREE.Quaternion()).current
+  const tempScale = useRef(new THREE.Vector3()).current
+  const tempPos = useRef(new THREE.Vector3(0, 0, 0)).current
 
-  useFrame(
-    () =>
-      materialRef.current &&
-      (materialRef.current.gradientRotation = animRef.current.gradientRot)
-  )
+  useFrame(() => {
+    const cfg = configRef.current
 
-  const transforms = useMemo(
-    () =>
-      Array.from({ length: count }).map((_, i, r) => ({
-        rotation: (i * Math.PI) / scalars.rot,
-        scale: 1 - (i / r.length) * scalars.scale
-      })),
-    [count, scalars.scale, scalars.rot]
-  )
+    if (!cfg) return
+
+    // Update material
+    if (materialRef.current) {
+      materialRef.current.gradientRotation = animRef.current!.gradientRot
+      materialRef.current.fadeAlpha = cfg.fadeAlpha
+      materialRef.current.fadeWidth = cfg.fadeWidth
+      materialRef.current.metalness = cfg.metalness
+      materialRef.current.opacity = cfg.opacity
+      materialRef.current.roughness = cfg.roughness
+    }
+
+    const mesh = meshRef.current
+
+    if (mesh) {
+      const count = Math.max(1, Math.min(50, Math.floor(cfg.instanceCount)))
+      const safeRot = Math.abs(cfg.rot) < 0.001 ? 0.001 : cfg.rot
+      mesh.count = 50
+
+      for (let i = 0; i < 50; i++) {
+        const active = i < count
+        const rot = (i * Math.PI) / safeRot
+        const s = active ? 1 - (i / count) * cfg.scale : 0
+        tempEuler.set(0, 0, rot)
+        tempQuat.setFromEuler(tempEuler)
+        tempScale.set(s, s, s)
+        tempMatrix.compose(tempPos, tempQuat, tempScale)
+        mesh.setMatrixAt(i, tempMatrix)
+      }
+
+      mesh.instanceMatrix.needsUpdate = true
+    }
+  })
 
   return (
     <>
-      <Instances range={count} key={Math.random()}>
-        <Geo
-          petalAmp={scalars.petalAmp}
-          petalSegments={scalars.petalSegments}
-          petalWidth={scalars.petalWidth}
-          petals={scalars.petals}
-          phaseRef={animRef as any}
-        />
+      <Instances ref={meshRef as any} range={50}>
+        <Geo configRef={configRef} phaseRef={animRef} />
 
         {/* @ts-expect-error - custom mat */}
         <gradientMaterial
           ref={materialRef}
           blending={THREE.NormalBlending}
-          fadeAlpha={cfg.fadeAlpha}
-          fadeWidth={cfg.fadeWidth}
-          fog
-          metalness={cfg.metalness}
-          opacity={cfg.opacity}
-          roughness={cfg.roughness}
           transparent
           side={THREE.DoubleSide}
         />
 
-        {transforms.map((t, i) => (
-          <Instance key={i} scale={t.scale} rotation={[0, 0, t.rotation]} />
+        {Array.from({ length: 50 }).map((_, i) => (
+          <Instance key={i} />
         ))}
       </Instances>
     </>
   )
 }
 
-function Scene() {
-  const animation = useSmoothControls('animation', {
-    gradientDuration: { max: 30, min: 1, step: 0.1, value: 12 },
-    phaseDuration: { max: 30, min: 1, step: 0.1, value: 8 }
+function Scene({ initValues, seed, timeScale = 1, ...props }: SceneProps) {
+  const uid = useRef((seed ?? Math.random().toString(36).slice(2)).toString())
+  const modulator = useRef(new NoiseModulator({ seed: uid.current, timeScale }))
+  const configRef = useRef(modulator.current.getCurrent())
+  const animRef = useRef({ gradientRot: 0, phase: 0 })
+
+  const { metalnessCtl, opacity, rotCtl, roughnessCtl, scaleCtl, speed } =
+    useControls(`scene/${uid.current}`, {
+      metalnessCtl: {
+        max: 1,
+        min: 0,
+        step: 0.001,
+        value: initValues?.metalnessCtl ?? 0.27
+      },
+      opacity: {
+        max: 0.3,
+        min: 0.005,
+        step: 0.001,
+        value: initValues?.opacity ?? 0.02
+      },
+      rotCtl: {
+        max: 1080,
+        min: -1080,
+        step: 1,
+        value: initValues?.rotCtl ?? -214
+      },
+      roughnessCtl: {
+        max: 1,
+        min: 0,
+        step: 0.001,
+        value: initValues?.roughnessCtl ?? 0.52
+      },
+      scaleCtl: {
+        max: 1,
+        min: 0,
+        step: 0.0001,
+        value: initValues?.scaleCtl ?? 0.33
+      },
+      speed: { max: 5, min: 0, step: 0.01, value: initValues?.speed ?? 0.48 }
+    })
+
+  // Single useFrame for all updates
+  useFrame((_, dt) => {
+    const deltaTime = dt * speed
+
+    // No external ranges; use the modulator's internal defaults
+
+    configRef.current = modulator.current.update(deltaTime)
+
+    // Override static controls from Leva
+    configRef.current.opacity = opacity
+    configRef.current.metalness = metalnessCtl
+    configRef.current.roughness = roughnessCtl
+    configRef.current.rot = rotCtl
+    configRef.current.scale = scaleCtl
+
+    // Update animations directly
+    animRef.current.phase =
+      (animRef.current.phase +
+        (deltaTime * 360) /
+          (configRef.current.phaseDuration *
+            (1 + (parseInt(uid.current, 36) % 5) * 0.15))) %
+      360
+    animRef.current.gradientRot =
+      (animRef.current.gradientRot +
+        (deltaTime * 360) /
+          (configRef.current.gradientDuration *
+            (1 + (parseInt(uid.current, 36) % 7) * 0.12))) %
+      360
   })
 
-  const animRef = useAnimations({
-    gradientDuration: animation.gradientDuration,
-    phaseDuration: animation.phaseDuration
-  })
-
-  const cfg = useSmoothControls('shape', {
-    fadeAlpha: { max: 1, min: 0, value: 0.93 },
-    fadeWidth: { max: 1, min: 0, value: 0.16 },
-    metalness: { max: 1, min: 0, value: 0.27 },
-    opacity: { max: 1, min: 0, value: 0.04 },
-    roughness: { max: 1, min: 0, value: 0.52 }
-  })
-
-  const scalars = useSmoothControls('scalars', {
-    instanceCount: { max: 50, min: 5, step: 1, value: 50 },
-    petalAmp: { max: 1, min: 0, step: 0.001, value: 0.36 },
-    petalSegments: { max: 1024, min: 64, step: 1, value: 360 },
-    petalWidth: { max: 0.2, min: 0.001, step: 0.001, value: 0.02 },
-    petals: { max: 100, min: 2, step: 1, value: 4 },
-    rot: { max: 360, min: -360, value: -214 },
-    scale: { max: 1, min: 0, step: 0.0001, value: 0.33 }
-  })
-
-  const instances = (
-    <FlowerInstances
-      count={scalars.instanceCount}
-      animRef={animRef}
-      cfg={cfg}
-      scalars={scalars}
-    />
-  )
+  const instances = <FlowerInstances animRef={animRef} configRef={configRef} />
 
   return (
-    <Center
-      scale={4}
-      key={JSON.stringify({ ...cfg, count: scalars.instanceCount })}
-    >
-      <group position-x={-0.25} rotation-z={Math.PI / -1.45}>
-        {instances}
-        <group scale-x={-1}>{instances}</group>
-      </group>
-
-      <group position-x={0.25} rotation-z={Math.PI / 1.45}>
-        {instances}
-        <group scale-x={-1}>{instances}</group>
-      </group>
-    </Center>
+    <group {...props}>
+      {instances}
+      <group scale-x={-1}>{instances}</group>
+    </group>
   )
-}
-
-interface AnimationConfig {
-  gradientDuration: number
-  phaseDuration: number
-}
-
-interface FlowerInstancesProps {
-  animRef: React.RefObject<{ phase: number; gradientRot: number }>
-  cfg: any
-  count?: number
-  scalars: any
 }
 
 export default function PageClient() {
@@ -201,7 +195,29 @@ export default function PageClient() {
           backgroundIntensity={0.005}
         />
 
-        <Scene key={Math.random()} />
+        <group scale={4}>
+          <Scene seed="A" rotation={[0, 0, Math.PI / -1.75]} />
+          <Scene
+            seed="B"
+            rotation={[0, 0, Math.PI / 1.75]}
+            initValues={{
+              metalness: 0.77,
+              opacity: 0.01,
+              rotCtl: -100,
+              roughness: 0.52,
+              scaleCtl: 0.85,
+              speed: 2
+            }}
+          />
+
+          <Scene
+            seed="D"
+            position={[0, 0, 1]}
+            rotation={[0, 0, Math.PI / 1.35]}
+            initValues={{ opacity: 0.01 }}
+          />
+        </group>
+
         <Effects />
       </Suspense>
 
@@ -209,4 +225,10 @@ export default function PageClient() {
       <Stats />
     </Canvas>
   )
+}
+
+interface SceneProps extends Partial<ThreeElements['group']> {
+  seed?: string | number
+  timeScale?: number
+  initValues?: Record<string, number>
 }
