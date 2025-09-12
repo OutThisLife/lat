@@ -11,7 +11,8 @@ import {
 } from '@react-three/drei'
 import type { ThreeElements } from '@react-three/fiber'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { useControls } from 'leva'
+import { Leva, useControls } from 'leva'
+import { useSearchParams } from 'next/navigation'
 import { Suspense, useRef } from 'react'
 import * as THREE from 'three'
 
@@ -174,6 +175,8 @@ function Scene({ initValues, seed, timeScale = 1, ...props }: SceneProps) {
 }
 
 export default function PageClient() {
+  const params = useSearchParams()
+
   return (
     <Canvas
       dpr={[1, 2]}
@@ -222,7 +225,8 @@ export default function PageClient() {
       </Suspense>
 
       <OrbitControls />
-      <Stats />
+      {params.has('stats') || (params.has('dev') && <Stats />)}
+      <Leva hidden={!params.get('dev')} />
     </Canvas>
   )
 }
